@@ -139,6 +139,7 @@
 #include "ym2612.h"
 #include "gwenesis_bus.h"
 #include "gwenesis_savestate.h"
+#include "my_timers.h"
 
 typedef uint32_t UINT32;
 typedef uint16_t UINT16;
@@ -2153,6 +2154,7 @@ void ym2612_run( int target) {
   if ( ym2612_clock >= target) {
     return;
   }
+  timer_start(timer_ym2612_run);
   int ym2612_prev_index = ym2612_index;
   ym2612_index += (target-ym2612_clock) / ym2612.divisor;
   if (ym2612_index > ym2612_prev_index) {
@@ -2162,6 +2164,7 @@ void ym2612_run( int target) {
   } else {
     ym2612_index = ym2612_prev_index;
   }
+  timer_stop(timer_ym2612_run);
 }
 
 /* ym2612 write */

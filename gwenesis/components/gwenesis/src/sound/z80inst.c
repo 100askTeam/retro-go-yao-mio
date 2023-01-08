@@ -26,6 +26,7 @@ __license__ = "GPLv3"
 #include "ym2612.h"
 #include "gwenesis_sn76489.h"
 #include "gwenesis_savestate.h"
+#include "my_timers.h"
 
 #if GNW_TARGET_MARIO !=0 || GNW_TARGET_ZELDA!=0
   #pragma GCC optimize("Ofast")
@@ -94,6 +95,8 @@ current_timeslice = 0;
     return;
   }
 
+  timer_start(timer_z80_run);
+
   current_timeslice = target - zclk;
 
   int rem = 0;
@@ -105,6 +108,7 @@ current_timeslice = 0;
   }
 
   zclk = target - rem * Z80_FREQ_DIVISOR;
+  timer_stop(timer_z80_run);
 }
 
 void z80_sync(void) {

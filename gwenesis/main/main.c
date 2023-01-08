@@ -48,6 +48,7 @@ static const char *SETTING_SN76489_EMULATION = "sn_enable";
 static const char *SETTING_FRAMESKIP = "frameskip";
 
 // --- MAIN
+#include <my_timers.h>
 
 typedef struct {
     char key[28];
@@ -299,6 +300,8 @@ void app_main(void)
     RG_LOGI("emulation loop\n");
     while (true)
     {
+        timer_start(timer_total);
+        timer_start(timer_misc);
         joystick_old = joystick;
         joystick = rg_input_read_gamepad();
 
@@ -350,6 +353,8 @@ void app_main(void)
         sn76489_index = 0;
 
         scan_line = 0;
+
+        timer_stop(timer_misc);
 
         while (scan_line < lines_per_frame)
         {
@@ -415,6 +420,7 @@ void app_main(void)
             ym2612_run(system_clock);
         }
 
+        timer_start(timer_misc);
         // reset m68k cycles to the begin of next frame cycle
         m68k.cycles -= system_clock;
 
@@ -432,6 +438,13 @@ void app_main(void)
 
         if (yfm_enabled || z80_enabled) {
             rg_audio_submit((void *)gwenesis_ym2612_buffer, AUDIO_BUFFER_LENGTH >> 1);
+        }
+        timer_stop(timer_misc);
+        timer_stop(timer_total);
+        if ((frames % 60) == 0)
+        {
+            timer_dump();
+            timer_reset();
         }
     }
 }

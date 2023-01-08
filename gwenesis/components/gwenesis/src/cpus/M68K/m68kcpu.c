@@ -23,6 +23,7 @@ extern int vdp_68k_irq_ack(int int_level);
 #include "m68kcpu.h"
 #include "m68kops.h"
 #include "gwenesis_savestate.h"
+#include "my_timers.h"
 
 /* ======================================================================== */
 /* ================================= DATA ================================= */
@@ -269,6 +270,7 @@ void m68k_run(unsigned int cycles)
     return;
   }
 
+  timer_start(timer_m68k_run);
   /* Check interrupt mask to process IRQ if needed */
   m68ki_check_interrupts();
 
@@ -276,7 +278,7 @@ void m68k_run(unsigned int cycles)
   if (CPU_STOPPED)
   {
     m68k.cycles = cycles;
-    return;
+    goto done;
   }
 
   /* Save end cycles count for when CPU is stopped */
@@ -315,6 +317,8 @@ void m68k_run(unsigned int cycles)
     /* Trace m68k_exception, if necessary */
     m68ki_exception_if_trace(); /* auto-disable (see m68kcpu.h) */
   }
+done:
+  timer_stop(timer_m68k_run);
 }
 
 int m68k_cycles(void)

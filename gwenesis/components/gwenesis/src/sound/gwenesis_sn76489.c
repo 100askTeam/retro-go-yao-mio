@@ -33,6 +33,7 @@
 #include "gwenesis_bus.h"
 #include "gwenesis_sn76489.h"
 #include "gwenesis_savestate.h"
+#include "my_timers.h"
 
 #define NoiseInitialState   0x8000  /* Initial state of shift register */
 #define PSG_CUTOFF          0x6     /* Value below which PSG does not output */
@@ -208,7 +209,7 @@ extern int scan_line;
 void gwenesis_SN76489_run(int target) {
  
 if ( sn76489_clock >= target) return;
-
+timer_start(timer_gwenesis_SN76489_run);
   int sn76489_prev_index = sn76489_index;
   sn76489_index += (target-sn76489_clock) / gwenesis_SN76489.divisor;
   if (sn76489_index > sn76489_prev_index) {
@@ -217,6 +218,7 @@ if ( sn76489_clock >= target) return;
   } else {
     sn76489_index = sn76489_prev_index;
   }
+  timer_stop(timer_gwenesis_SN76489_run);
 }
 void gwenesis_SN76489_Write(int data, int target)
 {

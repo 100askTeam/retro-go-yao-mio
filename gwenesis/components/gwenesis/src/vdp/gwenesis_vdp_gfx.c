@@ -24,7 +24,7 @@ __license__ = "GPLv3"
 #include "gwenesis_io.h"
 #include "gwenesis_bus.h"
 #include "gwenesis_savestate.h"
-
+#include "my_timers.h"
 //#include <assert.h>
 
 #if GNW_TARGET_MARIO !=0 || GNW_TARGET_ZELDA!=0
@@ -1011,6 +1011,7 @@ blit_4to5_line(uint16_t *in, uint16_t *out) {
 
 void gwenesis_vdp_render_line(int line)
 {
+  timer_start(timer_gwenesis_vdp_render_line);
   mode_h40 = REG12_MODE_H40;
   //mode_pal = REG1_PAL;
 
@@ -1021,10 +1022,10 @@ void gwenesis_vdp_render_line(int line)
 
   // interlace mode not implemented
   if (BITS(gwenesis_vdp_regs[12], 1, 2) != 0)
-    return;
+    goto end;
 
   if (line >= (REG1_PAL ? 240 : 224))
-    return;
+    goto end;
 
 #ifdef _HOST_
   memset(screen, 0, SCREEN_WIDTH * 4);
@@ -1038,7 +1039,7 @@ void gwenesis_vdp_render_line(int line)
 #endif
 
   if (REG0_DISABLE_DISPLAY)
-  return;
+  goto end;
 
 #ifdef _HOST_
     memset(screen, 0, SCREEN_WIDTH * 4);
@@ -1159,6 +1160,8 @@ void gwenesis_vdp_render_line(int line)
   }
 
   #endif
+end:
+  timer_stop(timer_gwenesis_vdp_render_line);
 }
 
 void gwenesis_vdp_gfx_save_state() {
