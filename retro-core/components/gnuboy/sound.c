@@ -17,6 +17,7 @@
 
 static gb_snd_t snd;
 
+uint32_t gb_chan_enable = 0xFF;
 
 void sound_dirty(void)
 {
@@ -140,8 +141,11 @@ void sound_emulate(void)
 				}
 			}
 			s <<= 2;
-			if (R_NR51 & 1) r += s;
-			if (R_NR51 & 16) l += s;
+			if (gb_chan_enable & 1)
+			{
+				if (R_NR51 & 1) r += s;
+				if (R_NR51 & 16) l += s;
+			}
 		}
 
 		if (S2.on)
@@ -160,8 +164,11 @@ void sound_emulate(void)
 				if (S2.envol > 15) S2.envol = 15;
 			}
 			s <<= 2;
-			if (R_NR51 & 2) r += s;
-			if (R_NR51 & 32) l += s;
+			if (gb_chan_enable & 2)
+			{
+				if (R_NR51 & 2) r += s;
+				if (R_NR51 & 32) l += s;
+			}
 		}
 
 		if (S3.on)
@@ -183,9 +190,11 @@ void sound_emulate(void)
 				s <<= (3 - ((R_NR32>>5)&3));
 			else
 				s = 0;
-
-			if (R_NR51 & 4) r += s;
-			if (R_NR51 & 64) l += s;
+			if (gb_chan_enable & 4)
+			{
+				if (R_NR51 & 4) r += s;
+				if (R_NR51 & 64) l += s;
+			}
 		}
 
 		if (S4.on)
@@ -212,9 +221,11 @@ void sound_emulate(void)
 			}
 
 			s += s << 1;
-
-			if (R_NR51 & 8) r += s;
-			if (R_NR51 & 128) l += s;
+			if (gb_chan_enable & 8)
+			{
+				if (R_NR51 & 8) r += s;
+				if (R_NR51 & 128) l += s;
+			}
 		}
 
 		l *= (R_NR50 & 0x07);

@@ -13,6 +13,13 @@ static long autoSaveSRAM_Timer = 0;
 
 static const char *SETTING_SAVESRAM = "SaveSRAM";
 static const char *SETTING_PALETTE  = "Palette";
+
+static const int sample_rates[] = {8000, 11025, 22050, 32000, 41000, 48000};
+static int sample_rate_index = 0;
+static int sample_rate = AUDIO_SAMPLE_RATE;
+
+extern uint32_t gb_chan_enable;
+extern void sound_update_rate(void);
 // --- MAIN
 
 
@@ -202,6 +209,45 @@ static rg_gui_event_t sram_settings_cb(rg_gui_option_t *option, rg_gui_event_t e
     return RG_DIALOG_VOID;
 }
 
+static void set_sample_rate(size_t index)
+{
+    sample_rate_index = index % RG_COUNT(sample_rates);
+    sample_rate = sample_rates[sample_rate_index];
+}
+
+static rg_gui_event_t sample_rate_cb(rg_gui_option_t *option, rg_gui_event_t event)
+{
+    int max = RG_COUNT(sample_rates) - 1;
+    int index = sample_rate_index;
+
+    if (event == RG_DIALOG_PREV && --index < 0) index = max;
+    if (event == RG_DIALOG_NEXT && ++index > max) index = 0;
+
+    if (event == RG_DIALOG_PREV || event == RG_DIALOG_NEXT)
+    {
+        set_sample_rate(index);
+        rg_settings_set_number(NS_APP, "sample_rate", sample_rate_index);
+    }
+
+    sprintf(option->value, "%d", sample_rate);
+    return RG_DIALOG_VOID;
+}
+
+static rg_gui_event_t snd_chan_cb(rg_gui_option_t *option, rg_gui_event_t event)
+{
+    size_t bitmask = option->arg;
+    if (event == RG_DIALOG_PREV || event == RG_DIALOG_NEXT || event == RG_DIALOG_ENTER)
+    {
+        if (gb_chan_enable & bitmask)
+            gb_chan_enable &= ~bitmask;
+        else
+            gb_chan_enable |= bitmask;
+        rg_settings_set_number(NS_APP, "channel_mask", gb_chan_enable);
+    }
+    strcpy(option->value, (gb_chan_enable & bitmask) ? "On" : "Off");
+    return RG_DIALOG_VOID;
+}
+
 static void blit_frame(void)
 {
     rg_video_update_t *previousUpdate = &updates[currentUpdate == &updates[0]];
@@ -235,10 +281,18 @@ void gbc_main(void)
         {0, "Palette", "7/7", 1, &palette_update_cb},
         {0, "Set clock", "00:00", 1, &rtc_update_cb},
         {0, "SRAM options...", NULL, 1, &sram_settings_cb},
+        {0, "Sample rate", "32000", 1, &sample_rate_cb},
+        {1, "Channel 1", "On", 1, &snd_chan_cb},
+        {2, "Channel 2", "On", 1, &snd_chan_cb},
+        {4, "Channel 3", "On", 1, &snd_chan_cb},
+        {8, "Channel 4", "On", 1, &snd_chan_cb},
         RG_DIALOG_CHOICE_LAST
     };
 
-    app = rg_system_reinit(AUDIO_SAMPLE_RATE, &handlers, options);
+    gb_chan_enable = rg_settings_get_number(NS_APP, "channel_mask", 0xFF);
+    set_sample_rate(rg_settings_get_number(NS_APP, "sample_rate", 3));
+
+    app = rg_system_reinit(sample_rate, &handlers, options);
 
     updates[0].buffer = rg_alloc(GB_WIDTH * GB_HEIGHT * 2, MEM_ANY);
     updates[1].buffer = rg_alloc(GB_WIDTH * GB_HEIGHT * 2, MEM_ANY);
@@ -252,7 +306,7 @@ void gbc_main(void)
         RG_LOGE("Unable to create SRAM folder...");
 
     // Initialize the emulator
-    if (gnuboy_init(AUDIO_SAMPLE_RATE, true, GB_PIXEL_565_BE, &blit_frame) < 0)
+    if (gnuboy_init(sample_rate, true, GB_PIXEL_565_BE, &blit_frame) < 0)
         RG_PANIC("EMulator init failed!");
 
     // Load ROM
