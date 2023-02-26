@@ -5,6 +5,7 @@
 #include "pce-go.h"
 #include "pce.h"
 #include "gfx.h"
+#include "psg.h"
 
 // Global struct containing our emulated hardware status
 PCE_t PCE;
@@ -111,6 +112,22 @@ pce_term(void)
 	PCE.NULLRAM = NULL;
 }
 
+extern rg_audio_sample_t audioBuffer[641];
+#define psg_buffer ((int16_t *)audioBuffer)
+// static int16_t psg_buffer[368 * 2];
+static size_t psg_buffer_pos = 0;
+static float psg_samples_accum = 0;
+extern uint32_t chanenable;
+
+static void psg_emulate()
+{
+	size_t num_samples = (size_t)psg_samples_accum;
+	if (num_samples < 4)
+		return;
+	psg_update(psg_buffer + psg_buffer_pos, num_samples, chanenable);
+	psg_samples_accum -= num_samples;
+	psg_buffer_pos += num_samples * 2;
+}
 
 /**
   * Run emulation for one frame
@@ -134,7 +151,11 @@ pce_run(void)
 			PCE.Cycles = 0;
 		}
 		gfx_run();
+		psg_samples_accum += 22050.f / 60 / 263;
+		psg_emulate();
 	}
+	rg_audio_submit(psg_buffer, psg_buffer_pos / 2);
+	psg_buffer_pos = 0;
 }
 
 

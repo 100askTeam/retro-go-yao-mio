@@ -17,7 +17,7 @@ static bool emulationPaused = false; // This should probably be a mutex
 static int current_height = 0;
 static int current_width = 0;
 static int overscan = false;
-static int chanenable = 0xFF;
+uint32_t chanenable = 0xFF;
 static int chunksize = 64;
 static int skipFrames = 0;
 static uint8_t *framebuffers[2];
@@ -236,7 +236,7 @@ void pce_main(void)
     app = rg_system_reinit(AUDIO_SAMPLE_RATE, &handlers, options);
 
     emulationPaused = true;
-    rg_task_create("pce_sound", &audioTask, NULL, 2 * 1024, 5, 1);
+    // rg_task_create("pce_sound", &audioTask, NULL, 2 * 1024, 5, 1);
 
     framebuffers[0] = rg_alloc(XBUF_WIDTH * XBUF_HEIGHT, MEM_FAST);
     framebuffers[1] = rg_alloc(XBUF_WIDTH * XBUF_HEIGHT, MEM_FAST);
