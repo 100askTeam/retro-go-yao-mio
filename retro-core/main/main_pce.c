@@ -17,6 +17,8 @@ static bool emulationPaused = false; // This should probably be a mutex
 static int current_height = 0;
 static int current_width = 0;
 static int overscan = false;
+static int chanenable = 0xFF;
+static int chunksize = 64;
 static int skipFrames = 0;
 static uint8_t *framebuffers[2];
 
@@ -145,7 +147,8 @@ static void audioTask(void *arg)
         // TODO: Clearly we need to add a better way to remain in sync with the main task...
         while (emulationPaused)
             rg_task_delay(20);
-        psg_update((void*)audioBuffer, numSamples, 0xFF);
+        const size_t numSamples = chunksize;
+        psg_update((void*)audioBuffer, numSamples, chanenable);
         rg_audio_submit(audioBuffer, numSamples);
     }
 
@@ -180,6 +183,36 @@ static bool reset_handler(bool hard)
     return true;
 }
 
+static rg_gui_event_t snd_chan_cb(rg_gui_option_t *option, rg_gui_event_t event)
+{
+    size_t bitmask = option->arg;
+    if (event == RG_DIALOG_PREV || event == RG_DIALOG_NEXT || event == RG_DIALOG_ENTER)
+    {
+        if (chanenable & bitmask)
+            chanenable &= ~bitmask;
+        else
+            chanenable |= bitmask;
+        rg_settings_set_number(NS_APP, "_chanenable", chanenable);
+    }
+    strcpy(option->value, (chanenable & bitmask) ? "On" : "Off");
+    return RG_DIALOG_VOID;
+}
+
+static rg_gui_event_t snd_chunk_cb(rg_gui_option_t *option, rg_gui_event_t event)
+{
+    int max = 128;
+
+    if (event == RG_DIALOG_PREV && --chunksize < 0) chunksize =  max; // 0;
+    if (event == RG_DIALOG_NEXT && ++chunksize > max) chunksize = 0;  // max;
+
+    if (event == RG_DIALOG_PREV || event == RG_DIALOG_NEXT)
+        rg_settings_set_number(NS_APP, "_chunksize", chunksize);
+
+    sprintf(option->value, "%d", chunksize);
+
+    return RG_DIALOG_VOID;
+}
+
 void pce_main(void)
 {
     const rg_handlers_t handlers = {
@@ -190,6 +223,13 @@ void pce_main(void)
     };
     const rg_gui_option_t options[] = {
         {2, "Overscan      ", "On ", 1, &overscan_update_cb},
+        {1, "Channel 1", "On", 1, &snd_chan_cb},
+        {2, "Channel 2", "On", 1, &snd_chan_cb},
+        {4, "Channel 3", "On", 1, &snd_chan_cb},
+        {8, "Channel 4", "On", 1, &snd_chan_cb},
+        {16, "Channel 5", "On", 1, &snd_chan_cb},
+        {32, "Channel 6", "On", 1, &snd_chan_cb},
+        {0, "Chunk size", "64", 1, &snd_chunk_cb},
         RG_DIALOG_CHOICE_LAST
     };
 
@@ -202,6 +242,8 @@ void pce_main(void)
     framebuffers[1] = rg_alloc(XBUF_WIDTH * XBUF_HEIGHT, MEM_FAST);
 
     overscan = rg_settings_get_number(NS_APP, SETTING_OVERSCAN, 1);
+    chanenable = rg_settings_get_number(NS_APP, "_chanenable", 0xFF);
+    chunksize = rg_settings_get_number(NS_APP, "_chunksize", 62);
 
     uint16_t *palette = PalettePCE(16);
     for (int i = 0; i < 256; i++)
