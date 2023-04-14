@@ -227,7 +227,7 @@ static void system_monitor_task(void *arg)
 
         if (rg_input_read_battery(&batteryPercent, NULL))
         {
-            if (batteryPercent < 2)
+            if (batteryPercent < RG_BATTERY_LOW_POWER)
                 rg_system_set_led((ledState ^= 1));
             else if (ledState)
                 rg_system_set_led((ledState = 0));
@@ -446,7 +446,7 @@ rg_app_t *rg_system_init(int sampleRate, const rg_handlers_t *handlers, const rg
             ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, RG_APP_LAUNCHER));
 #endif
 
-    rg_system_set_timezone(rg_settings_get_string(NS_GLOBAL, SETTING_TIMEZONE, "EST+5"));
+    rg_system_set_timezone(rg_settings_get_string(NS_GLOBAL, SETTING_TIMEZONE, "UTC-8"));
     rg_system_load_time();
 
     // Do these last to not interfere with panic handling above

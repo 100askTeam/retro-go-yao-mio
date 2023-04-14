@@ -12,6 +12,8 @@
 #include "targets/mrgc-gbm/config.h"
 #elif defined(RG_TARGET_ESPLAY_MICRO)
 #include "targets/esplay-micro/config.h"
+#elif defined(RG_TARGET_YAO_MIO)
+#include "targets/yao-mio/config.h"
 #else
 #warning "No target defined. Defaulting to ODROID-GO."
 #include "targets/odroid-go/config.h"
@@ -50,7 +52,7 @@
 #endif
 
 #ifndef RG_BUILD_USER
-#define RG_BUILD_USER "ducalex"
+#define RG_BUILD_USER "100ASK"
 #endif
 
 #ifndef RG_RECOVERY_BTN

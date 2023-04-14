@@ -31,9 +31,9 @@ static inline int battery_read(void)
 #if defined(RG_BATTERY_ADC_CHANNEL)
 
     uint32_t adc_sample = 0;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < RG_BATTERY_SAMPLES; ++i)
         adc_sample += esp_adc_cal_raw_to_voltage(adc1_get_raw(RG_BATTERY_ADC_CHANNEL), &adc_chars);
-    return adc_sample / 4;
+    return adc_sample / RG_BATTERY_SAMPLES;
 
 #elif RG_GAMEPAD_DRIVER == 3 /* I2C */
 
@@ -78,35 +78,79 @@ static inline uint32_t gamepad_read(void)
     #endif
 
 #elif RG_GAMEPAD_DRIVER == 2  // Serial
+/*
+    Default   0   0000 0000
+    A         1   0000 0001 (1 << 0)
+    B         2   0000 0010 (1 << 1)
+    SELECT	  4   0000 0100 (1 << 2)
+    START 	  8   0000 1000 (1 << 3)
+    UP       16   0001 0000 (1 << 4)
+    DOWN     32   0010 0000 (1 << 5)
+    LEFT     64   0100 0000 (1 << 6)
+    RIGHT   128   1000 0000 (1 << 7)
+*/
 
-    gpio_set_level(RG_GPIO_GAMEPAD_LATCH, 0);
-    usleep(5);
     gpio_set_level(RG_GPIO_GAMEPAD_LATCH, 1);
-    usleep(1);
+    rg_task_delay(5);
+    gpio_set_level(RG_GPIO_GAMEPAD_LATCH, 0);
+    rg_task_delay(5);
 
-    uint32_t buttons = 0;
-    for (int i = 0; i < 16; i++)
-    {
-        buttons |= gpio_get_level(RG_GPIO_GAMEPAD_DATA) << (15 - i);
-        gpio_set_level(RG_GPIO_GAMEPAD_CLOCK, 0);
-        usleep(1);
+    uint16_t buttons = 0;
+    for (int i = 0; i < 8; i++) {
+        if (gpio_get_level(RG_GPIO_GAMEPAD_DATA) == 0){
+            buttons |= (1 << i);
+        }
+
         gpio_set_level(RG_GPIO_GAMEPAD_CLOCK, 1);
-        usleep(1);
+        rg_task_delay(5);
+        gpio_set_level(RG_GPIO_GAMEPAD_CLOCK, 0);
+        rg_task_delay(5);
     }
 
-    for (size_t i = 0; i < keymap_size; ++i)
-    {
-        if ((buttons & keymap[i].src) == keymap[i].src)
-            state |= keymap[i].key;
-    }
+    if (buttons & RG_GAMEPAD_MAP_MENU) state |= RG_KEY_MENU;
+    //if (buttons & RG_GAMEPAD_MAP_OPTION) state |= RG_KEY_OPTION;
+    if (buttons & RG_GAMEPAD_MAP_START) state |= RG_KEY_START;
+    //if (buttons & RG_GAMEPAD_MAP_SELECT) state |= RG_KEY_SELECT;
+    if (buttons & RG_GAMEPAD_MAP_UP) state |= RG_KEY_UP;
+    if (buttons & RG_GAMEPAD_MAP_RIGHT) state |= RG_KEY_RIGHT;
+    if (buttons & RG_GAMEPAD_MAP_DOWN) state |= RG_KEY_DOWN;
+    if (buttons & RG_GAMEPAD_MAP_LEFT) state |= RG_KEY_LEFT;
+    if (buttons & RG_GAMEPAD_MAP_A) state |= RG_KEY_A;
+    if (buttons & RG_GAMEPAD_MAP_B) state |= RG_KEY_B;
+
+    #ifdef RG_GPIO_GAMEPAD_MENU
+    if (!gpio_get_level(RG_GPIO_GAMEPAD_MENU))   state |= RG_KEY_MENU;
+    #endif
+    #ifdef RG_GPIO_GAMEPAD_OPTION
+    if (!gpio_get_level(RG_GPIO_GAMEPAD_OPTION)) state |= RG_KEY_OPTION;
+    #endif
 
 #elif RG_GAMEPAD_DRIVER == 3  // I2C
-
-    uint8_t data[5];
-    if (rg_i2c_read(0x20, -1, &data, 5))
+/*
+    Default:           0    0000 0000 0000 0000
+    UP       p00       1    0000 0000 0000 0001 (1<<0)
+    DOWN     p01       2    0000 0000 0000 0010 (1<<1)
+    LEFT     p02       4    0000 0000 0000 0100 (1<<2)
+    RIGHT    p03       8    0000 0000 0000 1000 (1<<3)
+    A        p04      16    0000 0000 0001 0000 (1<<4)
+    B        p05      32    0000 0000 0010 0000 (1<<5)
+    X        p06      64    0000 0000 0100 0000 (1<<6)
+    Y        p07     128    0000 0000 1000 0000 (1<<7)
+    START    p10     256    0000 0001 0000 0000 (1<<8)
+    SELECT   p11     512    0000 0010 0000 0000 (1<<9)
+    MENU     p12    1024    0000 0100 0000 0000 (1<<10)
+    OPTION   p13    2048    0000 1000 0000 0000 (1<<11)
+    L        p14    4096    0001 0000 0000 0000 (1<<12)
+    R        p15    8192    0010 0000 0000 0000 (1<<13)
+    NC       p16   16384    0100 0000 0000 0000 (1<<14)
+    NC       p17   32768    1000 0000 0000 0000 (1<<15)
+*/
+    uint8_t data[2] = {0xFF,0xFF};
+    if (rg_i2c_read(0x20, 0, data, 2))
     {
-        uint32_t buttons = ~((data[2] << 8) | data[1]);
-
+        
+        uint16_t buttons = ~(((uint16_t)data[1] << 8) | data[0]);
+        
         for (size_t i = 0; i < keymap_size; ++i)
         {
             if ((buttons & keymap[i].src) == keymap[i].src)
@@ -231,12 +275,15 @@ void rg_input_init(void)
 
     const char *driver = "SERIAL";
 
+    gpio_reset_pin(RG_GPIO_GAMEPAD_CLOCK);
+    gpio_reset_pin(RG_GPIO_GAMEPAD_LATCH);
+    gpio_reset_pin(RG_GPIO_GAMEPAD_DATA);
     gpio_set_direction(RG_GPIO_GAMEPAD_CLOCK, GPIO_MODE_OUTPUT);
     gpio_set_direction(RG_GPIO_GAMEPAD_LATCH, GPIO_MODE_OUTPUT);
     gpio_set_direction(RG_GPIO_GAMEPAD_DATA, GPIO_MODE_INPUT);
 
-    gpio_set_level(RG_GPIO_GAMEPAD_LATCH, 0);
-    gpio_set_level(RG_GPIO_GAMEPAD_CLOCK, 1);
+    //gpio_set_level(RG_GPIO_GAMEPAD_LATCH, 0);
+    //gpio_set_level(RG_GPIO_GAMEPAD_CLOCK, 1);
 
 #elif RG_GAMEPAD_DRIVER == 3 // I2C
 

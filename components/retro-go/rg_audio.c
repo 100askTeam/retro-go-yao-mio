@@ -27,6 +27,7 @@ static SemaphoreHandle_t audioDevLock;
 #if RG_AUDIO_USE_INT_DAC || RG_AUDIO_USE_EXT_DAC
 #include <driver/gpio.h>
 #include <driver/i2s.h>
+#include "es8311.h" // 100ask
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 2, 0)
 // The inversion is deliberate, it was a bug in older esp-idf
 #define I2S_COMM_FORMAT_STAND_I2S (I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB)
@@ -61,11 +62,25 @@ static const rg_audio_sink_t sinks[] = {
 static rg_audio_t audio;
 static rg_audio_counters_t counters;
 static int64_t dummyBusyUntil = 0;
+static es8311_handle_t es8311_dev;
 
 static const char *SETTING_OUTPUT = "AudioSink";
 static const char *SETTING_VOLUME = "Volume";
 static const char *SETTING_FILTER = "AudioFilter";
 
+
+
+/**
+ * @brief ES8311 init structure
+ *
+ */
+#define ES8311_SCLK_CONFIG(_sample_rate) \
+    {                                        \
+        .mclk_from_mclk_pin = false,         \
+        .mclk_inverted = false,              \
+        .sclk_inverted = false,              \
+        .sample_frequency = _sample_rate     \
+    }
 
 void rg_audio_init(int sampleRate)
 {
@@ -113,13 +128,22 @@ void rg_audio_init(int sampleRate)
     else if (audio.sink->type == RG_AUDIO_SINK_I2S_EXT)
     {
     #if RG_AUDIO_USE_EXT_DAC
+        #if RG_TARGET_YAO_MIO
+            const es8311_clock_config_t clk_cfg = ES8311_SCLK_CONFIG(sampleRate);
+
+            /* Create and configure ES8311 I2C driver */
+            es8311_dev = es8311_create(I2C_NUM_0, ES8311_ADDRRES_0);
+            es8311_init(es8311_dev, &clk_cfg, ES8311_RESOLUTION_16, ES8311_RESOLUTION_16);
+            es8311_voice_volume_set(es8311_dev, audio.volume, NULL);
+        #endif
+        
         esp_err_t ret = i2s_driver_install(I2S_NUM_0, &(i2s_config_t){
             .mode = I2S_MODE_MASTER | I2S_MODE_TX,
             .sample_rate = sampleRate,
             .bits_per_sample = 16,
             .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-        #ifdef RG_TARGET_ESPLAY_S3
-            .communication_format = I2S_COMM_FORMAT_STAND_I2S | I2S_COMM_FORMAT_STAND_MSB,
+        #if RG_TARGET_ESPLAY_S3 || RG_TARGET_YAO_MIO
+            .communication_format = I2S_COMM_FORMAT_STAND_I2S,
             .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, // ESP_INTR_FLAG_LEVEL1
             .dma_buf_count = 8, // Goal is to have ~800 samples over 2-8 buffers (3x270 or 5x180 are pretty good)
             .dma_buf_len = 534, // The unit is stereo samples (4 bytes) (optimize for 533 usage)
@@ -258,6 +282,8 @@ void rg_audio_submit(const rg_audio_frame_t *frames, size_t count)
         {
             int left = frames[i].left * volume;
             int right = frames[i].right * volume;
+            //int left = frames[i].left;
+            //int right = frames[i].right;
 
             if (differential)
             {
@@ -347,6 +373,7 @@ void rg_audio_set_volume(int percent)
 {
     audio.volume = RG_MIN(RG_MAX(percent, 0), 100);
     rg_settings_set_number(NS_GLOBAL, SETTING_VOLUME, audio.volume);
+    es8311_voice_volume_set(es8311_dev, (audio.volume == 0) ? 0 : (45 + ((audio.volume / 5) * 2)), NULL); // 40-85
     RG_LOGI("Volume set to %d%%\n", audio.volume);
 }
 

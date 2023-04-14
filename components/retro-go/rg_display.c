@@ -382,6 +382,36 @@ static void lcd_init(void)
     ILI9341_CMD(0xB6, {0x0A, 0x82, 0x27, 0x00});
     ILI9341_CMD(0x11, {0x80});                                  //Exit Sleep
     ILI9341_CMD(0x29, {0x80});
+#elif RG_SCREEN_TYPE == 7  // Retro Yao-Mio Screen
+	ILI9341_CMD(0x11, {0x00});
+    usleep(120 * 1000);
+	ILI9341_CMD(0xF0, {0xC3});
+	ILI9341_CMD(0xF0, {0x96});
+	ILI9341_CMD(0x36, {0x48});
+	ILI9341_CMD(0xB4, {0x01});
+    ILI9341_CMD(0xB7, {0xC6});
+    ILI9341_CMD(0xE8, {0x40,0X8A,0X00,0X00,0X29,0X19,0XA5,0X33});
+    ILI9341_CMD(0xC1, {0x06});
+    ILI9341_CMD(0xC2, {0xA7});
+    ILI9341_CMD(0xC5, {0x18});
+    ILI9341_CMD(0xE0, {0xF0,0x09,0x0B,0x06,0x04,0x15,0x2F,0x54,0x42,0x3C,0x17,0x14,0x18,0x1B});
+    ILI9341_CMD(0xE1, {0xf0,0x09,0x0b,0x06,0x04,0x03,0x2d,0x43,0x42,0x3b,0x16,0x14,0x17,0x1b}); //Negative Voltage Gamma Control
+    ILI9341_CMD(0xF0, {0x3C});
+    ILI9341_CMD(0xF0, {0x69});
+    ILI9341_CMD(0x3A, {0x55});
+    usleep(120 * 1000);
+    ILI9341_CMD(0x29, {0x00}); //Display ON
+
+#if (RG_SCREEN_ROTATE == 1)
+    ILI9341_CMD(0x36, {(((1<<7)|(1<<6)|(1<<5))|0X08)});
+#elif (RG_SCREEN_ROTATE == 2)
+    ILI9341_CMD(0x36, {(((1<<7)|(0<<6)|(0<<5))|0X08)});
+#elif (RG_SCREEN_ROTATE == 3)
+    ILI9341_CMD(0x36, {(((0<<7)|(0<<6)|(1<<5))|0X08)});
+#endif
+
+    ILI9341_CMD(0x2A, {0x00,0x00,((RG_SCREEN_WIDTH-1)>>8),((RG_SCREEN_WIDTH-1)&0XFF)});
+    ILI9341_CMD(0x2B, {0x00,0x00,((RG_SCREEN_HEIGHT-1)>>8),((RG_SCREEN_HEIGHT-1)&0XFF)});
 #else
     #error "LCD init sequence is not defined for this device!"
 #endif

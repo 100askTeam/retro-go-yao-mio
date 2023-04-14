@@ -6,7 +6,7 @@
 # - Partitions of type data are ignored when building a .fw.
 # - Subtypes and offsets and size may be adjusted when building a .fw or .img
 
-PROJECT_NAME = "Retro-Go"
+PROJECT_NAME = "Retro-Go-Yao-Mio"
 PROJECT_ICON = "assets/icon.raw"
 PROJECT_APPS = {
   # Project name  Type, SubType, Size

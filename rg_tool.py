@@ -23,7 +23,7 @@ for t in glob.glob("components/retro-go/targets/*/config.h"):
 
 DEFAULT_TARGET = os.getenv("RG_TOOL_TARGET", TARGETS[0])
 DEFAULT_BAUD = os.getenv("RG_TOOL_BAUD", "1152000")
-DEFAULT_PORT = os.getenv("RG_TOOL_PORT", "COM3")
+DEFAULT_PORT = os.getenv("RG_TOOL_PORT", "/dev/ttyACM0")
 PROJECT_NAME = os.getenv("PROJECT_NAME", "Retro-Go") # os.path.basename(os.getcwd()).title()
 PROJECT_ICON = os.getenv("PROJECT_ICON", "icon.raw")
 PROJECT_APPS = {}
@@ -40,6 +40,10 @@ if os.path.exists("rg_config.py"):
 # else: something like
 #     for file in glob(*/CMakeLists.txt):
 #       PROJECT_APPS[basename(dirname(file))] = [0, 0, 0, 0]
+
+
+if not os.getenv("IDF_PATH"):
+    exit("IDF_PATH is not defined. Are you running inside esp-idf environment?")
 
 
 class Symbol:
@@ -167,12 +171,14 @@ def build_image(apps, device_type):
         subprocess.run("idf.py bootloader", stdout=subprocess.DEVNULL, shell=True, check=True, cwd=cwd)
         with open(os.path.join(cwd, "build", "bootloader", "bootloader.bin"), "rb") as f:
             bootloader_bin = f.read()
-        image_data[0x1000:0x1000+len(bootloader_bin)] = bootloader_bin
+        #image_data[0x1000:0x1000+len(bootloader_bin)] = bootloader_bin
+        image_data[0x0:0x0+len(bootloader_bin)] = bootloader_bin
     except:
         exit("Error building bootloader")
 
     try:
         table_bin = gen_esp32part.PartitionTable.from_csv("\n".join(table_csv)).to_binary()
+        #image_data[0x8000:0x8000+len(table_bin)] = table_bin
         image_data[0x8000:0x8000+len(table_bin)] = table_bin
     except:
         exit("Error generating partition table")
@@ -200,11 +206,21 @@ def clean_app(app):
 def build_app(app, device_type, with_profiling=False, without_networking=False):
     # To do: clean up if any of the flags changed since last build
     print("Building app '%s'" % app)
+    if device_type == "esplay-s3" or device_type == "yao-mio":
+        os.putenv("IDF_TARGET","esp32s3")
+        print("Building CHIP Target esp32s3")
+    else:
+        os.putenv("IDF_TARGET","esp32")
+        print("Building CHIP Target esp32")
+    print("Building app '%s'" % app)
     os.putenv("RG_ENABLE_PROFILING", "1" if with_profiling else "0")
     os.putenv("RG_ENABLE_NETWORKING", "0" if without_networking else "1")
+    #os.putenv("RG_ENABLE_NETWORKING", "1" if with_networking else "0")
+    #os.putenv("RG_ENABLE_NETPLAY", "1" if with_netplay else "0")
     os.putenv("RG_BUILD_TARGET", re.sub(r'[^A-Z0-9]', '_', device_type.upper()))
     os.putenv("RG_BUILD_TIME", str(int(time.time())))
     os.putenv("RG_BUILD_VERSION", PROJECT_VER)
+    #os.putenv("PROJECT_VER", PROJECT_VER)
     subprocess.run("idf.py app", shell=True, check=True, cwd=os.path.join(os.getcwd(), app))
 
     try:

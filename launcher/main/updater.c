@@ -6,12 +6,12 @@
 #include <string.h>
 #include <cJSON.h>
 
-#define GITHUB_RELEASES_URL "https://api.github.com/repos/ducalex/retro-go/releases"
+#define GITHUB_RELEASES_URL "https://api.github.com/repos/100askTeam/retro-go-yao-mio/releases"
 
 #if defined(RG_TARGET_MRGC_G32)
 #define DOWNLOAD_LOCATION RG_STORAGE_ROOT "/espgbc/firmware"
 #else
-#define DOWNLOAD_LOCATION RG_STORAGE_ROOT "/odroid/firmware"
+#define DOWNLOAD_LOCATION RG_STORAGE_ROOT "/yaomio/firmware"
 #endif
 
 typedef struct

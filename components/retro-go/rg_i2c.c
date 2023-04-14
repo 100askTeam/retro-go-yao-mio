@@ -20,6 +20,26 @@ static uint8_t gpio_extender_address = 0x00;
         goto fail;             \
     }
 
+#if USE_I2C_DRIVER
+static void i2c_bus_scan(void)
+{
+
+    for (uint8_t dev_address = 1; dev_address < 127; dev_address++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (dev_address << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_stop(cmd);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(500));
+
+        if (ret == ESP_OK) {
+            RG_LOGI("i2c_bus_scan found i2c device address = 0x%02x", dev_address);
+        }
+
+        i2c_cmd_link_delete(cmd);
+    }
+}
+#endif
+
 
 bool rg_i2c_init(void)
 {
@@ -41,6 +61,8 @@ bool rg_i2c_init(void)
     TRY(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
     RG_LOGI("I2C driver ready (SDA:%d SCL:%d).\n", i2c_config.sda_io_num, i2c_config.scl_io_num);
     i2c_initialized = true;
+
+    i2c_bus_scan();
     return true;
 fail:
     RG_LOGE("Failed to initialize I2C driver. err=0x%x\n", err);
@@ -69,6 +91,8 @@ bool rg_i2c_read(uint8_t addr, int reg, void *read_data, size_t read_len)
 
     if (!cmd || !i2c_initialized)
         goto fail;
+    
+    //TRY(i2c_master_write_read_device(I2C_NUM_0, addr, &reg, 1, read_data, read_len, 1000 / portTICK_RATE_MS));
 
     if (reg >= 0)
     {
