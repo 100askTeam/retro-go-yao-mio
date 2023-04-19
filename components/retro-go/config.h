@@ -39,7 +39,7 @@
 #endif
 
 #ifndef RG_APP_FACTORY
-#define RG_APP_FACTORY NULL
+#define RG_APP_FACTORY "factory"
 #endif
 
 #ifndef RG_PATH_MAX
